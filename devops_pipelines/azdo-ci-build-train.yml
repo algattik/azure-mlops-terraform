@@ -79,11 +79,14 @@ stages:
     container: mcr.microsoft.com/mlops/python:latest
     timeoutInMinutes: 0
     steps:
-    - script: |
-        python $(Build.SourcesDirectory)/ml_pipelines/verify_train_pipeline.py --build_id $(Build.BuildId) --model_name "$(MODEL_NAME)"
+    - task: AzureCLI@1
       displayName: 'Check if new model registered'
-      env:
-        SP_APP_SECRET: '$(SP_APP_SECRET)'
+      inputs:
+        azureSubscription: '$(WORKSPACE_SVC_CONNECTION)'
+        scriptLocation: inlineScript
+        inlineScript: |
+          set -e # fail on error
+          python $(Build.SourcesDirectory)/ml_pipelines/verify_train_pipeline.py --build_id $(Build.BuildId) --model_name "$(MODEL_NAME)"
     - task: CopyFiles@2
       displayName: 'Copy Files to: $(Build.ArtifactStagingDirectory)'
       inputs:

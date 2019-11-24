@@ -2,7 +2,6 @@ import os
 import sys
 import argparse
 from azureml.core import Run, Experiment, Workspace
-from azureml.core.authentication import ServicePrincipalAuthentication
 
 
 def main():
@@ -18,20 +17,11 @@ def main():
         experiment_name = os.environ.get("EXPERIMENT_NAME")
         resource_group = os.environ.get("RESOURCE_GROUP")
         subscription_id = os.environ.get("SUBSCRIPTION_ID")
-        tenant_id = os.environ.get("TENANT_ID")
-        app_id = os.environ.get('SP_APP_ID')
-        app_secret = os.environ.get('SP_APP_SECRET')
         build_id = os.environ.get('BUILD_BUILDID')
-        service_principal = ServicePrincipalAuthentication(
-            tenant_id=tenant_id,
-            service_principal_id=app_id,
-            service_principal_password=app_secret)
-
         aml_workspace = Workspace.get(
             name=workspace_name,
             subscription_id=subscription_id,
-            resource_group=resource_group,
-            auth=service_principal
+            resource_group=resource_group
         )
         ws = aml_workspace
         exp = Experiment(ws, experiment_name)
