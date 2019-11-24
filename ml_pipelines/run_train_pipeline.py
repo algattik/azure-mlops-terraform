@@ -66,8 +66,7 @@ def main():
             print("- Run ID: ", run.id)
             print("- Run URL: ", run.get_portal_url())
 
-            run.wait_for_completion(show_output=True,
-                                    wait_post_processing=True)
+            run.wait_for_completion(show_output=True)
 
 
 if __name__ == "__main__":
