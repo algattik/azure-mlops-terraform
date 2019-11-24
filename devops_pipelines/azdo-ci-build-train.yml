@@ -7,7 +7,6 @@ trigger:
     exclude:
     - docs/
     - environment_setup/
-    - charts/
 
 variables:
 - template: azdo-variables.yml
