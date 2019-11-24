@@ -63,7 +63,9 @@ def main():
                 pipeline_parameters)
 
             run_id = response.id
-            print("Pipeline run initiated ", run_id)
+            print("Pipeline run initiated")
+            print("- Run ID: ", run_id)
+            print("- Run URL: ", response.get_portal_url())
 
 
 if __name__ == "__main__":
