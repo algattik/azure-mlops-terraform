@@ -13,7 +13,6 @@ def main():
     parser.add_argument(
         "--output_pipeline_id_file",
         type=str,
-        required=True,
         help="Name of a file to write pipeline ID to"
     )
     parser.add_argument(
@@ -52,20 +51,23 @@ def main():
         print("published pipeline id is", published_pipeline.id)
 
         # Save the Pipeline ID for other AzDO jobs after script is complete
-        with open(args.output_pipeline_id_file, "w") as out_file:
-            out_file.write(published_pipeline.id)
+        if args.output_pipeline_id_file is not None:
+            with open(args.output_pipeline_id_file, "w") as out_file:
+                out_file.write(published_pipeline.id)
 
         if(args.skip_train_execution is False):
             pipeline_parameters = {"model_name": e.model_name}
-            response = published_pipeline.submit(
+            run = published_pipeline.submit(
                 aml_workspace,
                 e.experiment_name,
                 pipeline_parameters)
 
-            run_id = response.id
             print("Pipeline run initiated")
-            print("- Run ID: ", run_id)
-            print("- Run URL: ", response.get_portal_url())
+            print("- Run ID: ", run.id)
+            print("- Run URL: ", run.get_portal_url())
+
+            run.wait_for_completion(show_output=True,
+                                    wait_post_processing=True)
 
 
 if __name__ == "__main__":
