@@ -76,7 +76,7 @@ stages:
 #        ExperimentName: '$(EXPERIMENT_NAME)'
 #        PipelineParameters: '"model_name": "$(MODEL_NAME)"'
   - job: "Training_Run_Report"
-    dependsOn: "Run_ML_Pipeline"
+#    dependsOn: "Run_ML_Pipeline"
     displayName: "Determine if evaluation succeeded and new model is registered"
     pool:
       vmImage: 'ubuntu-latest'
