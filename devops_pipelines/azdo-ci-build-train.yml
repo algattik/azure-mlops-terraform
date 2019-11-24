@@ -46,6 +46,7 @@ stages:
     timeoutInMinutes: 0
     steps:
     - task: AzureCLI@1
+      name: 'getpipelineid'
       displayName: 'Run Azure ML Pipeline'
       inputs:
         azureSubscription: '$(WORKSPACE_SVC_CONNECTION)'
