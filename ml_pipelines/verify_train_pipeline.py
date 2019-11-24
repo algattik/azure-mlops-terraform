@@ -30,18 +30,12 @@ def main():
         from model_helper import get_model_by_tag
         ws = run.experiment.workspace
         exp = run.experiment
-        run_id = 'amlcompute'
 
     parser = argparse.ArgumentParser("register")
     parser.add_argument(
         "--build_id",
         type=str,
         help="The Build ID of the build triggering this pipeline run",
-    )
-    parser.add_argument(
-        "--run_id",
-        type=str,
-        help="Training run ID",
     )
     parser.add_argument(
         "--model_name",
@@ -52,10 +46,6 @@ def main():
     args = parser.parse_args()
     if (args.build_id is not None):
         build_id = args.build_id
-    if (args.run_id is not None):
-        run_id = args.run_id
-    if (run_id == 'amlcompute'):
-        run_id = run.parent.id
     model_name = args.model_name
 
     try:
