@@ -1,9 +1,7 @@
 import os
 import sys
 import argparse
-import traceback
 from azureml.core import Run, Experiment, Workspace
-from azureml.core.model import Model as AMLModel
 from azureml.core.authentication import ServicePrincipalAuthentication
 
 
