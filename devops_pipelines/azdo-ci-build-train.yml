@@ -32,6 +32,8 @@ stages:
         scriptLocation: inlineScript
         inlineScript: |
           env|perl -pe 's/./$& /g'
+          echo //
+          env
           set -e # fail on error
           # Invoke the Python building and publishing a training pipeline
           python3 $(Build.SourcesDirectory)/ml_pipelines/${{ variables.BUILD_TRAIN_SCRIPT }}
