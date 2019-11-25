@@ -83,14 +83,6 @@ resource "azurerm_kubernetes_cluster" "aks" {
   }
 }
 
-output "client_certificate" {
-  value = azurerm_kubernetes_cluster.aks.kube_config.0.client_certificate
-}
-
-output "kube_config" {
-  value = azurerm_kubernetes_cluster.aks.kube_config_raw
-}
-
 resource "null_resource" "save-kube-config" {
     triggers = {
         config = azurerm_kubernetes_cluster.aks.kube_config_raw
@@ -100,62 +92,6 @@ resource "null_resource" "save-kube-config" {
     }
 }
  
-
-# Namespace
-
-provider "kubernetes" {
-  host                   = azurerm_kubernetes_cluster.aks.kube_config.0.host
-  client_certificate     = base64decode(azurerm_kubernetes_cluster.aks.kube_config.0.client_certificate)
-  client_key             = base64decode(azurerm_kubernetes_cluster.aks.kube_config.0.client_key)
-  cluster_ca_certificate = base64decode(azurerm_kubernetes_cluster.aks.kube_config.0.cluster_ca_certificate)
-}
-
-resource "kubernetes_namespace" "istio" {
-  metadata {
-    name = "istio-system"
-  }
-}
-
-resource "kubernetes_secret" "istio_grafana" {
-  metadata {
-    name = "grafana"
-    namespace = "istio-system"
-    labels = {
-      app = "grafana"
-    }
-  }
-  data = {
-    username = "admin"
-    passphrase = "P4ssw0rd"
-  }
-}
-
-resource "kubernetes_secret" "istio_kiali" {
-  metadata {
-    name = "kiali"
-    namespace = "istio-system"
-    labels = {
-      app = "kiali"
-    }
-  }
-  data = {
-    username = "admin"
-    passphrase = "P4ssw0rd"
-  }
-}
-
-# Istio
-
-resource "null_resource" "install-istio" {
-    triggers = {
-        workspace = null_resource.save-kube-config.id
-        manifest = sha1(file("istio.aks.yaml"))
-    }
-    provisioner "local-exec" {
-        command = "istioctl --kubeconfig ${path.module}/.kube/azure_config manifest apply -f istio.aks.yaml"
-    }
-}
-
 # Connect Azure ML to AKS
 
 resource "null_resource" "attach-azureml-aks" {
@@ -175,13 +111,4 @@ if [ "$state" == "Failed" ] || [ "$state" == "" ]; then
 fi
 BASH
     }
-    depends_on = [
-      kubernetes_namespace.istio,
-      kubernetes_secret.istio_grafana,
-      kubernetes_secret.istio_kiali,
-    ]
 }
- 
-
-
-
