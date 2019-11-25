@@ -7,7 +7,7 @@ This project adapts the MLOpsPython solution (see References) with the following
 * Added Terraform scripts to deploy Azure ML workspace and AKS cluster.
 * Reduced number of Azure DevOps variables.
 * Cleaner organization of scripts.
-* Use self-hosted DevOps agent to build. Motivation: if you build on Microsoft-hosted agents, the build has to download the entire mcr.microsoft.com/mlops/python container image at every stage, which takes about 2 minutes. With a 2-stage build pipeline, that's 4 minutes overhead per build, which you incur only the first time by using a self-hosted agent VM.
+* Use self-hosted DevOps agent to build. Motivation: if you build on Microsoft-hosted agents, the build has to download the entire mcr.microsoft.com/mlops/python container image at every stage, which takes about 2 minutes. With a 2-stage build pipeline, that's 4 minutes overhead per build, which you incur only the first time by using a self-hosted agent VM. The solution provision 4 agents on a single VM, which can lead to side effects, but I've found this to be appropriate for "client-server" job that do little local processing and mostly call out to cloud APIs.
 
 ## How-to
 
@@ -16,6 +16,7 @@ This project adapts the MLOpsPython solution (see References) with the following
 * Create an Azure DevOps project. Take note of the Azure DevOps organization in the URL, e.g. https://dev.azure.com/{MyOrg}.
 * In Azure DevOps, create a Personal Access Token (PAT), the URL is at https://dev.azure.com/{MyOrg}/_usersSettings/tokens. Grant the token the permission Agent Pools > Read & manage.
 * In Azure DevOps, create an Agent Pool. Name the pool `pool001`. (If you choose another name, you will need to set the variable in Terraform, and also update the DevOps pipeline YAML).
+* Install the [Azure DevOps Machine Learning extension](https://marketplace.visualstudio.com/items?itemName=ms-air-aiagility.vss-services-azureml) into your Azure DevOps organization.
 
 ### Provision Azure resources
 
@@ -62,6 +63,8 @@ The `skipComponentGovernanceDetection` entry is useful only if you [work for Mic
 ### Run Build pipeline
 
 In Azure DevOps, create a new Build pipeline and point to `devops_pipelines/azdo-ci-build-train.yml`. Execute the pipeline.
+
+The script devops_pipelines/azdo-ci-build-train.yml has a section commented out, to use the new new agentless ML job submission extension [Azure DevOps Machine Learning extension > Run published pipeline server task](https://marketplace.visualstudio.com/items?itemName=ms-air-aiagility.vss-services-azureml), but it's commented out and replaced by an agent-based version while I sort out blocking issues with the extension authors. (The job gets canceled instead of ending successfully).
 
 ### Create Release pipeline
 
