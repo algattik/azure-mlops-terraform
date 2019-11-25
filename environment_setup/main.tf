@@ -21,7 +21,7 @@ data "azurerm_client_config" "current" {}
 # Resource Group
 
 resource "azurerm_resource_group" "aml" {
-  name     = "rg-${var.prefix}"
+  name     = "rg-${var.prefix}-ml"
   location = var.location
 }
 
@@ -81,7 +81,7 @@ resource "azurerm_container_registry" "aml" {
 # Azure ML Workspace
 
 resource "azurerm_template_deployment" "aml" {
-  name                     = "aml-${var.prefix}"
+  name                     = "aml-${var.prefix}-deploy"
   resource_group_name = azurerm_resource_group.aml.name
 
   template_body = <<DEPLOY
@@ -125,7 +125,17 @@ resource "azurerm_template_deployment" "aml" {
         "storageAccount": "[parameters('storageAccount')]"
       }
     }
-  ]
+  ],
+  "outputs": {
+    "id": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.MachineLearningServices/workspaces', parameters('amlWorkspaceName'))]"
+    },
+    "name": {
+      "type": "string",
+      "value": "[parameters('amlWorkspaceName')]"
+    }
+  }
 }
 DEPLOY
 
