@@ -175,6 +175,11 @@ if [ "$state" == "Failed" ] || [ "$state" == "" ]; then
 fi
 BASH
     }
+    depends_on = [
+      kubernetes_namespace.istio,
+      kubernetes_secret.istio_grafana,
+      kubernetes_secret.istio_kiali,
+    ]
 }
  
 
