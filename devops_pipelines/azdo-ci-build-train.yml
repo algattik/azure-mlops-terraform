@@ -56,6 +56,7 @@ stages:
         scriptLocation: inlineScript
         inlineScript: |
           set -e # fail on error
+          export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
           pipeline_id_file=$(mktemp)
           # python $(Build.SourcesDirectory)/ml_pipelines/run_train_pipeline.py --output_pipeline_id_file "$pipeline_id_file" --skip_train_execution
           python $(Build.SourcesDirectory)/ml_pipelines/run_train_pipeline.py
@@ -94,6 +95,7 @@ stages:
         scriptLocation: inlineScript
         inlineScript: |
           set -e # fail on error
+          export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
           python $(Build.SourcesDirectory)/ml_pipelines/verify_train_pipeline.py --build_id $(Build.BuildId) --model_name "$(MODEL_NAME)"
     - task: CopyFiles@2
       displayName: 'Copy Files to: $(Build.ArtifactStagingDirectory)'
