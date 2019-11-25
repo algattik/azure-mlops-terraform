@@ -20,7 +20,7 @@ stages:
   - job: "Model_CI_Pipeline"
     displayName: "Model CI Pipeline"
     pool:
-      vmImage: 'ubuntu-latest'
+      name: pool001
     container: mcr.microsoft.com/mlops/python:latest
     timeoutInMinutes: 0
     steps:
@@ -41,7 +41,7 @@ stages:
     condition: and(succeeded(), eq(coalesce(variables['auto-trigger-training'], 'true'), 'true'))
     displayName: "Get Pipeline ID for execution"
     pool:
-      vmImage: 'ubuntu-latest'
+      name: pool001
     container: mcr.microsoft.com/mlops/python:latest
     timeoutInMinutes: 0
     steps:
@@ -80,7 +80,7 @@ stages:
     dependsOn: "Train_Pipeline"
     displayName: "Determine if evaluation succeeded and new model is registered"
     pool:
-      vmImage: 'ubuntu-latest'
+      name: pool001
     container: mcr.microsoft.com/mlops/python:latest
     timeoutInMinutes: 0
     steps:
