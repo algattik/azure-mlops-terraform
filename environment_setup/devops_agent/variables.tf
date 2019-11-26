@@ -6,6 +6,10 @@ variable "location" {
   type = string
 }
 
+variable "subnet_id" {
+  type = string
+}
+
 variable "url" {
   type = string
   description = "Specify the Azure DevOps url e.g. https://dev.azure.com/myorg"

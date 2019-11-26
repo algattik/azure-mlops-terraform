@@ -14,7 +14,15 @@ variable "tenant_id" {
   type    = string
 }
 
+variable "subnet_id" {
+  type    = string
+}
+
 variable "aksServicePrincipalId" {
+  type = string
+}
+
+variable "aksServicePrincipalObjectId" {
   type = string
 }
 

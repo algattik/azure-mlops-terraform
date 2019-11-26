@@ -4,22 +4,6 @@ provider "azurerm" {
   version = "=1.36.1"
 }
 
-# Key Vault
-
-resource "azurerm_key_vault" "aks" {
-  name                     = "kv-${var.prefix}"
-  location                    = var.location
-  resource_group_name         = var.resource_group_name
-  tenant_id                   = var.tenant_id
-
-  sku_name = "standard"
-
-  network_acls {
-    default_action = "Deny"
-    bypass         = "AzureServices"
-  }
-}
-
 # Application Insights
 
 resource "random_id" "workspace" {
@@ -51,6 +35,13 @@ resource "azurerm_log_analytics_solution" "aks" {
   }
 }
 
+# Subnet permission
+
+resource "azurerm_role_assignment" "aks_subnet" {
+  scope                = var.subnet_id
+  role_definition_name = "Network Contributor"
+  principal_id         = var.aksServicePrincipalObjectId
+}
 
 # Kubernetes Service
 
@@ -66,6 +57,7 @@ resource "azurerm_kubernetes_cluster" "aks" {
     vm_size         = "Standard_D2_v2"
     os_type         = "Linux"
     os_disk_size_gb = 30
+    vnet_subnet_id  = var.subnet_id
   }
 
   addon_profile {
@@ -79,4 +71,8 @@ resource "azurerm_kubernetes_cluster" "aks" {
     client_id     = var.aksServicePrincipalId
     client_secret = var.aksServicePrincipalSecret
   }
+
+  depends_on = [
+    azurerm_role_assignment.aks_subnet
+  ]
 }

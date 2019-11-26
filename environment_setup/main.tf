@@ -21,8 +21,16 @@ resource "azurerm_resource_group" "aml" {
 }
 
 
+module "vnet" {
+  source = "./vnet"
+  resource_group_name = azurerm_resource_group.aml.name
+  prefix = var.prefix
+  location = var.location
+}
+
 module "devops_agent" {
   source = "./devops_agent"
+  subnet_id = module.vnet.devops_subnet_id
   prefix = var.prefix
   location = var.location
   url = var.url
@@ -39,8 +47,10 @@ module "aks" {
   location = var.location
   resource_group_name = azurerm_resource_group.aml.name
   tenant_id = data.azurerm_client_config.current.tenant_id
+  subnet_id = module.vnet.aks_subnet_id
   aksServicePrincipalId = var.aksServicePrincipalId
   aksServicePrincipalSecret = var.aksServicePrincipalSecret
+  aksServicePrincipalObjectId = var.aksServicePrincipalObjectId
 }
 
 module "azureml" {

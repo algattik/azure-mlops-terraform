@@ -28,7 +28,7 @@ resource "azurerm_storage_blob" "devops" {
   storage_account_name   = azurerm_storage_account.devops.name
   storage_container_name = azurerm_storage_container.devops.name
   type                   = "Block"
-  source                 = "devops_agent_init.sh"
+  source                 = "./devops_agent/devops_agent_init.sh"
 }
 
 data "azurerm_storage_account_blob_container_sas" "devops_agent_init" {
@@ -49,22 +49,6 @@ data "azurerm_storage_account_blob_container_sas" "devops_agent_init" {
   }
 }
 
-
-# Create virtual network
-resource "azurerm_virtual_network" "devops" {
-  name                = "AzureDevOpsVnet"
-  address_space       = ["10.100.0.0/16"]
-  location            = var.location
-  resource_group_name = azurerm_resource_group.devops.name
-}
-
-# Create subnet
-resource "azurerm_subnet" "devops" {
-  name                 = "AzureDevopsSubnet"
-  resource_group_name  = azurerm_resource_group.devops.name
-  virtual_network_name = azurerm_virtual_network.devops.name
-  address_prefix       = "10.100.1.0/24"
-}
 
 # Create public IPs
 resource "azurerm_public_ip" "devops" {
@@ -90,7 +74,7 @@ resource "azurerm_network_interface" "devops" {
 
   ip_configuration {
     name                          = "AzureDevOpsNicConfiguration"
-    subnet_id                     = azurerm_subnet.devops.id
+    subnet_id                     = var.subnet_id
     private_ip_address_allocation = "dynamic"
     public_ip_address_id          = azurerm_public_ip.devops.id
   }
@@ -139,7 +123,7 @@ resource "azurerm_virtual_machine" "devops" {
 }
 
 resource "azurerm_virtual_machine_extension" "devops" {
-  name                 = "hostname"
+  name                 = "install_azure_devops_agent"
   location             = var.location
   resource_group_name  = azurerm_resource_group.devops.name
   virtual_machine_name = azurerm_virtual_machine.devops.name

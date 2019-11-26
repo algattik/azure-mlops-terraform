@@ -9,10 +9,16 @@ variable "aksServicePrincipalId" {
 variable "aksServicePrincipalSecret" {
   type = string
 }
+
+variable "aksServicePrincipalObjectId" {
+  type = string
+}
+
 variable "location" {
   type    = string
   default = "West Europe"
 }
+
 variable "url" {
   type = string
   description = "Specify the Azure DevOps url e.g. https://dev.azure.com/myorg"

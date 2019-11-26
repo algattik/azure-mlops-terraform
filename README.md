@@ -8,7 +8,7 @@ This project automatically deploys DevOps infrastructure and Azure ML infrastruc
 ![DevOps pipeline](/docs/images/pipeline.png)
 
 This project adapts the MLOpsPython solution (see References) with the following improvements to increase developer productivity.
-* Added Terraform scripts to deploy Azure ML workspace and AKS cluster.
+* Added Terraform scripts to deploy Azure ML workspace and AKS cluster in a VNET.
 * Reduced number of Azure DevOps variables.
 * Cleaner organization of scripts.
 * Single multi-stage pipeline in version control, rather than separate release pipeline. A release pipeline is not only hard to version control, but also requires **two** separate inbound artifacts from the build pipeline (the pipeline artifacts + the ML Model), which creates an opportunity to introduce errors.
@@ -25,11 +25,24 @@ This project adapts the MLOpsPython solution (see References) with the following
 * In Azure DevOps, create an Agent Pool. Name the pool `pool001`. (If you choose another name, you will need to set the variable in Terraform, and also update the DevOps pipeline YAML).
 * Install the [Azure DevOps Machine Learning extension](https://marketplace.visualstudio.com/items?itemName=ms-air-aiagility.vss-services-azureml) into your Azure DevOps organization.
 
-### Provision Azure resources
+### Required resources
 
 If you don't yet have a public SSH key defined in ~/.ssh/id_rsa.pub, run:
 ```
 ssh-keygen
+```
+
+Install the Azure CLI and log in to your subscription:
+
+```
+az login
+az account list -o table
+```
+
+If you don't want to use the default subscription, set a different one using:
+
+```
+az account set -s {subscriptionId}
 ```
 
 Create a Service Principal that will serve as the identity of the created AKS cluster. Make sure to use `--skip-assignment true`, otherwise the principal will be granted Contributor permission to your entire subscription.
@@ -38,13 +51,37 @@ Create a Service Principal that will serve as the identity of the created AKS cl
 az ad sp create-for-rbac --skip-assignment true
 ```
 
-The command outputs the principal ID and secret, which we will use in the next command.
+The command outputs the principal ID (`appId`) and secret (`password`), which we will use in the next command.
+
+Now we will also need the service principal Object ID. Retrieve this with this command, passing the principal ID:
+
+```
+az ad sp show --id {createdPrincipalId} --query objectId
+```
+
+Example:
+
+```
+az ad sp create-for-rbac --skip-assignment true
+{
+  "appId": "5a6da102-1de4-47b6-8e3a-628e26f075e6",
+  "displayName": "azure-cli-2019-11-26-17-31-58",
+  "name": "http://azure-cli-2019-11-26-17-31-58",
+  "password": "ffffffff-0000-0000-0000-cd226c638d82",
+  "tenant": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+}
+
+az ad sp show --id  5a6da102-1de4-47b6-8e3a-628e26f075e6 --query objectId
+"58270c2e-2c3d-4473-aadb-faffdb106b44"
+```
+
+### Terraform deployment
 
 Deploy the Terraform environment. Choose a prefix containing only lowercase letters and numbers. The prefix must be globally unique as it's used for DNS names, so use something original!
 
 ```
 cd environment_setup
-terraform plan -out=out.tfstate -var prefix=xyzzy01 -var pat={AzureDevOpsPATToken} -var sshkey="$(cat ~/.ssh/id_rsa.pub)" -var url=https://dev.azure.com/{MyOrg} -var aksServicePrincipalId={createdPrincipalId} -var aksServicePrincipalSecret={createdPrincipalSecret}
+terraform plan -out=out.tfstate -var prefix=xyzzy01 -var pat={AzureDevOpsPATToken} -var sshkey="$(cat ~/.ssh/id_rsa.pub)" -var url=https://dev.azure.com/{MyOrg} -var aksServicePrincipalId={createdPrincipalId} -var aksServicePrincipalSecret={createdPrincipalSecret} -var aksServicePrincipalObjectId={createdPrincipalObjectId}
 terraform apply out.tfstate
 ```
 
