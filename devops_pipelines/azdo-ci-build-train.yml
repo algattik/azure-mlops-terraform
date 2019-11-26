@@ -55,57 +55,93 @@ stages:
         inlineScript: |
           set -e # fail on error
           export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-          pipeline_id_file=$(mktemp)
-          # python $(Build.SourcesDirectory)/ml_pipelines/run_train_pipeline.py --output_pipeline_id_file "$pipeline_id_file" --skip_train_execution
-          python $(Build.SourcesDirectory)/ml_pipelines/run_train_pipeline.py
-          echo "##vso[task.setvariable variable=AMLPIPELINEID;isOutput=true]$(cat $pipeline_id_file)"
-          rm "$pipeline_id_file"
-#  - job: "Run_ML_Pipeline"
-#    dependsOn: "Train_Pipeline"
-#    displayName: "Trigger ML Training Pipeline"
-#    pool: server
-#    variables:
-#      AMLPIPELINE_ID: $[ dependencies.Train_Pipeline.outputs['getpipelineid.AMLPIPELINEID'] ]
-#    steps:
-#    - task: Delay@1
-#      inputs:
-#        delayForMinutes: 1
-#    - task: ms-air-aiagility.vss-services-azureml.azureml-restApi-task.MLPublishedPipelineRestAPITask@0
-#      displayName: 'Invoke ML pipeline'
-#      inputs:
-#        azureSubscription: '$(WORKSPACE_SVC_CONNECTION)'
-#        PipelineId: '$(AMLPIPELINE_ID)'
-#        ExperimentName: '$(EXPERIMENT_NAME)'
-#        PipelineParameters: '"model_name": "$(MODEL_NAME)"'
-  - job: "Training_Run_Report"
-#    dependsOn: "Run_ML_Pipeline"
+          python $(Build.SourcesDirectory)/ml_pipelines/run_train_pipeline.py --output_pipeline_id_file "pipeline_id.txt" --skip_train_execution
+          echo "##vso[task.setvariable variable=AMLPIPELINEID;isOutput=true]$(cat pipeline_id.txt)"
+  - job: "Run_ML_Pipeline"
     dependsOn: "Train_Pipeline"
-    displayName: "Determine if evaluation succeeded and new model is registered"
+    displayName: "Trigger ML Training Pipeline"
+    pool: server
+    variables:
+      AMLPIPELINE_ID: $[ dependencies.Train_Pipeline.outputs['getpipelineid.AMLPIPELINEID'] ]
+    steps:
+    - task: ms-air-aiagility.vss-services-azureml.azureml-restApi-task.MLPublishedPipelineRestAPITask@0
+      displayName: 'Invoke ML pipeline'
+      inputs:
+        azureSubscription: '$(WORKSPACE_SVC_CONNECTION)'
+        PipelineId: '$(AMLPIPELINE_ID)'
+        ExperimentName: '$(EXPERIMENT_NAME)'
+        PipelineParameters: '"model_name": "$(MODEL_NAME)"'
+- stage: 'Deploy_AKS'
+  displayName: 'Deploy to AKS'
+  jobs:
+  - job: "Get_Model_Version"
+    displayName: "Get Model version"
     pool:
       name: pool001
     container: mcr.microsoft.com/mlops/python:latest
     timeoutInMinutes: 0
     steps:
     - task: AzureCLI@1
-      displayName: 'Check if new model registered'
+      name: 'getversion'
+      displayName: "Determine if evaluation succeeded and new model is registered"
       inputs:
         azureSubscription: '$(WORKSPACE_SVC_CONNECTION)'
         scriptLocation: inlineScript
         inlineScript: |
           set -e # fail on error
           export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
-          python $(Build.SourcesDirectory)/ml_pipelines/verify_train_pipeline.py --build_id $(Build.BuildId) --model_name "$(MODEL_NAME)"
-    - task: CopyFiles@2
-      displayName: 'Copy Files to: $(Build.ArtifactStagingDirectory)'
+          python $(Build.SourcesDirectory)/ml_pipelines/verify_train_pipeline.py --build_id $(Build.BuildId) --model_name "$(MODEL_NAME)" --output_model_version_file "model_version.txt"
+          echo "##vso[task.setvariable variable=MODEL_VERSION;isOutput=true]$(cat model_version.txt)"
+  - job: "Deploy_AKS"
+    dependsOn: "Get_Model_Version"
+    displayName: "Deploy to AKS"
+    pool:
+      name: pool001
+    timeoutInMinutes: 0
+    variables:
+      MODEL_VERSION: $[ dependencies.Get_Model_Version.outputs['getversion.MODEL_VERSION'] ]
+    steps:
+    - bash: |
+        #Workaround for https://github.com/Azure/azure-cli/issues/11379
+        echo "##vso[task.setvariable variable=HOME]${HOME:-$AGENT_HOMEDIRECTORY}"
+      displayName: 'Set HOME directory'
+    - task: ms-air-aiagility.vss-services-azureml.azureml-model-deploy-task.AMLModelDeploy@0
+      displayName: 'Azure ML Model Deploy'
       inputs:
-        SourceFolder: '$(Build.SourcesDirectory)'
-        TargetFolder: '$(Build.ArtifactStagingDirectory)'
-        Contents: |
-          code/scoring/**
-    - task: PublishBuildArtifacts@1
-      displayName: 'Publish Artifact'
+        azureSubscription: $(WORKSPACE_SVC_CONNECTION)
+        modelSourceType: manualSpec
+        modelName: '$(MODEL_NAME)'
+        modelVersion: $(MODEL_VERSION)
+        inferencePath: '$(Build.SourcesDirectory)/code/scoring/inference_config.yml'
+        deploymentTarget: AKS
+        aksCluster: aks
+        deploymentName: $(IMAGE_NAME)
+        deployConfig: '$(Build.SourcesDirectory)/code/scoring/deployment_config_aks.yml'
+        overwriteExistingDeployment: true
+    - task: AzureCLI@1
+      displayName: 'Smoke test'
       inputs:
-        ArtifactName: 'mlops-pipelines'
-        publishLocation: 'container'
-        pathtoPublish: '$(Build.ArtifactStagingDirectory)' 
-        TargetPath: '$(Build.ArtifactStagingDirectory)'
+        azureSubscription: '$(WORKSPACE_SVC_CONNECTION)'
+        scriptLocation: inlineScript
+        inlineScript: |
+          set -e # fail on error
+
+          # Workaround for https://github.com/Azure/azure-cli/issues/11379
+          HOME=${HOME:-$AGENT_HOMEDIRECTORY}
+
+          echo "Installing azure-cli-ml extension"
+          az extension add -n azure-cli-ml
+
+          echo "Fetching service URL"
+          echo ". Service name: $(IMAGE_NAME)"
+          uri=$(az ml service show -g $(RESOURCE_GROUP) -w $(WORKSPACE_NAME) -n $(IMAGE_NAME) --query scoringUri -o tsv)
+          echo ". Service URL: $uri"
+
+          echo "Fetching service key"
+          key=$(az ml service get-keys -g $(RESOURCE_GROUP) -w $(WORKSPACE_NAME) -n $(IMAGE_NAME) --query primaryKey -o tsv)
+
+          echo "Invoking service with test payload and checking output"
+          # jq -e option sets exit code if no match
+          curl -H "Authorization: Bearer $key" "$uri" -d '{"data":[[1,2,3,4,5,6,7,8,9,10],[10,9,8,7,6,5,4,3,2,1]]}' -H Content-type:application/json | jq -e '.result'
+
+

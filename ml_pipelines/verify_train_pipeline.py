@@ -42,6 +42,11 @@ def main():
         type=str,
         help="Name of the Model"
     )
+    parser.add_argument(
+        "--output_model_version_file",
+        type=str,
+        help="Name of a file to write model version to"
+    )
 
     args = parser.parse_args()
     if (args.build_id is not None):
@@ -50,12 +55,22 @@ def main():
 
     try:
         tag_name = 'BuildId'
-        get_model_by_tag(model_name, tag_name, build_id, exp.workspace)
-        print("Model was registered for this build.")
+        model = get_model_by_tag(
+            model_name, tag_name, build_id, exp.workspace)
+        if (model is not None):
+            print("Model was registered for this build.")
+        if (model is None):
+            print("Model was not registered for this run.")
+            sys.exit(1)
     except Exception as e:
         print(e)
         print("Model was not registered for this run.")
         sys.exit(1)
+
+    # Save the Model Version for other AzDO jobs after script is complete
+    if args.output_model_version_file is not None:
+        with open(args.output_model_version_file, "w") as out_file:
+            out_file.write(str(model.version))
 
 
 if __name__ == '__main__':

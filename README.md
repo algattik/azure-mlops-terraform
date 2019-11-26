@@ -3,11 +3,18 @@
 
 ## About this project
 
+This project automatically deploys DevOps infrastructure and Azure ML infrastructure to build, train and deploy a basic ML model to Azure Kubernetes Service.
+
+![DevOps pipeline](/docs/images/pipeline.png)
+
 This project adapts the MLOpsPython solution (see References) with the following improvements to increase developer productivity.
 * Added Terraform scripts to deploy Azure ML workspace and AKS cluster.
 * Reduced number of Azure DevOps variables.
 * Cleaner organization of scripts.
-* Use self-hosted DevOps agent to build. Motivation: if you build on Microsoft-hosted agents, the build has to download the entire mcr.microsoft.com/mlops/python container image at every stage, which takes about 2 minutes. With a 2-stage build pipeline, that's 4 minutes overhead per build, which you incur only the first time by using a self-hosted agent VM. The solution provision 4 agents on a single VM, which can lead to side effects, but I've found this to be appropriate for "client-server" job that do little local processing and mostly call out to cloud APIs.
+* Single multi-stage pipeline in version control, rather than separate release pipeline. A release pipeline is not only hard to version control, but also requires **two** separate inbound artifacts from the build pipeline (the pipeline artifacts + the ML Model), which creates an opportunity to introduce errors.
+* Pass specific trained model version when triggering model deployment, rather than just deploying the latest model.
+* Use self-hosted DevOps agent to build. These agents are also deployed with Terraform. Motivation: if you build on Microsoft-hosted agents, the build has to download the entire mcr.microsoft.com/mlops/python container image at every stage, which takes about 2 minutes. With a 2-stage build pipeline, that's 4 minutes overhead per build, which you incur only the first time by using a self-hosted agent VM. The solution provision 4 agents on a single VM, which can lead to side effects, but I've found this to be appropriate for "client-server" job that do little local processing and mostly call out to cloud APIs.
+* Added smoke test to validate the deployed image on AKS.
 
 ## How-to
 
@@ -64,31 +71,13 @@ The `skipComponentGovernanceDetection` entry is useful only if you [work for Mic
 
 In Azure DevOps, create a new Build pipeline and point to `devops_pipelines/azdo-ci-build-train.yml`. Execute the pipeline.
 
-The script devops_pipelines/azdo-ci-build-train.yml has a section commented out, to use the new new agentless ML job submission extension [Azure DevOps Machine Learning extension > Run published pipeline server task](https://marketplace.visualstudio.com/items?itemName=ms-air-aiagility.vss-services-azureml), but it's commented out and replaced by an agent-based version while I sort out blocking issues with the extension authors. (The job gets canceled instead of ending successfully).
+The first run, or any subsequent run where the model performance improves, will result in the model being registered and deployed to AKS:
 
-### Create Release pipeline
+![DevOps pipeline](/docs/images/pipeline.png)
 
-Follow the instructions at https://github.com/microsoft/MLOpsPython/blob/master/docs/getting_started.md#set-up-a-release-deployment-pipeline-to-deploy-the-model. You can skip the deployment to ACI and deploy directly to AKS.
+Any subsequent run where the model performance does not improve, will result in the pipeline being canceled:
 
-I've been hit by an [Azure CLI bug](https://github.com/Azure/azure-cli/issues/11379) which has forced me to come with a workaround:
-Before the AzureML Model Deploy task, add a bash task with the following inline script:
-```
-echo "##vso[task.setvariable variable=HOME]${HOME:-$AGENT_HOMEDIRECTORY}"
-```
-
-I've found it useful to add a Smoke test task after the AzureML Model Deploy task. Create an Azure CLI task, select your `AzureMLWorkspace` service connection and enter the following inline script:
-```
-set -euo pipefail
-
-az extension add -n azure-cli-ml
-
-uri=$(az ml service show -g $RESOURCE_GROUP -w $WORKSPACE_NAME -n mlops-aks --query scoringUri -o tsv)
-key=$(az ml service get-keys -g $RESOURCE_GROUP -w $WORKSPACE_NAME -n mlops-aks --query primaryKey -o tsv)
-
-# jq -e will set exit code if element not found
-curl -H "Authorization: Bearer $key" "$uri" -d '{"data":[[1,2,3,4,5,6,7,8,9,10],[10,9,8,7,6,5,4,3,2,1]]}' -H Content-type:application/json | jq -e .result
-```
-
+![DevOps pipeline](/docs/images/pipeline_canceled.png)
 
 ## References
 
