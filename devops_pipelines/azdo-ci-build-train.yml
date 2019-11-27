@@ -79,7 +79,7 @@ stages:
         azureSubscription: '$(WORKSPACE_SVC_CONNECTION)'
         PipelineId: '$(AMLPIPELINE_ID)'
         ExperimentName: '$(EXPERIMENT_NAME)'
-        PipelineParameters: '"hyperparameter_alpha": "$(ALPHA)", "model_name": "$(MODEL_NAME)"'
+        PipelineParameters: '"ParameterAssignments":{"model_name": "$(MODEL_NAME)", "hyperparameter_alpha": "$(ALPHA)"}'
 - stage: 'Deploy_AKS'
   displayName: 'Deploy to AKS'
   jobs:
