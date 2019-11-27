@@ -14,6 +14,8 @@ variables:
 - name: AML_CLUSTER_PRIORITY
   value: lowpriority
   # Training Config
+- name: BUILD_TRAIN_SCRIPT
+  value: build_train_pipeline.py
 - name: TRAIN_SCRIPT_PATH
   value: training/train.py
 - name: MODEL_NAME
