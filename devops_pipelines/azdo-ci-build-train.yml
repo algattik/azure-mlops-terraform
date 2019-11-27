@@ -38,7 +38,7 @@ stages:
           # Generate a hyperparameter value as a random number between 0 and 1.
           # A random value is used here to make the Azure ML dashboards "interesting" when testing
           # the solution sample.
-          alpha=$(bc <<< "scale=8; $RANDOM/32768")
+          alpha=$(printf "0.%03d\n" $((($RANDOM*1000)/32767)))
 
           # Invoke the Python building and publishing a training pipeline
           python3 $(Build.SourcesDirectory)/ml_pipelines/build_train_pipeline.py --alpha $alpha
