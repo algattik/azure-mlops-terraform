@@ -19,14 +19,22 @@ parser.add_argument(
     type=str,
     help="Name of the Model"
 )
+parser.add_argument(
+    "--alpha",
+    type=float,
+    default=0.5,
+    help="Ridge regression regularization strength hyperparameter; must be a positive float."
+)
 
 args = parser.parse_args()
 
-print("Argument 1: %s" % args.build_id)
-print("Argument 2: %s" % args.model_name)
+print("Argument [build_id]: %s" % args.build_id)
+print("Argument [model_name]: %s" % args.model_name)
+print("Argument [alpha]: %s" % args.alpha)
 
 model_name = args.model_name
 build_id = args.build_id
+alpha = args.alpha
 
 run = Run.get_context()
 exp = run.experiment
@@ -41,8 +49,6 @@ data = {"train": {"X": X_train, "y": y_train},
 
 print("Running train.py")
 
-alpha = 0.5
-print(alpha)
 run.log("alpha", alpha)
 run.parent.log("alpha", alpha)
 reg = Ridge(alpha=alpha)

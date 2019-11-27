@@ -31,10 +31,18 @@ stages:
         azureSubscription: '$(WORKSPACE_SVC_CONNECTION)'
         scriptLocation: inlineScript
         inlineScript: |
+
           set -e # fail on error
           export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+
+          # Generate a hyperparameter value as a random number between 0 and 1.
+          # A random value is used here to make the Azure ML dashboards "interesting" when testing
+          # the solution sample.
+          alpha=$(bc <<< "scale=8; $RANDOM/32768")
+
           # Invoke the Python building and publishing a training pipeline
-          python3 $(Build.SourcesDirectory)/ml_pipelines/${{ variables.BUILD_TRAIN_SCRIPT }}
+          python3 $(Build.SourcesDirectory)/ml_pipelines/build_train_pipeline.py --alpha $alpha
+
 - stage: 'Trigger_AML_Pipeline'
   displayName: 'Train, evaluate, register model via previously published AML pipeline'
   jobs:
