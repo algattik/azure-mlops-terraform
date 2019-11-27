@@ -22,7 +22,10 @@ if [ "$state" == "Failed" ]; then
   az ml computetarget detach -g ${var.resource_group_name} -w ${var.azureml_workspace_name} -n aks 
 fi
 if [ "$state" == "Failed" ] || [ "$state" == "" ]; then
-  az ml computetarget attach aks --compute-resource-id ${var.aks_id} --name aks -g ${var.resource_group_name} -w ${var.azureml_workspace_name}
+  # There currently no "--load-balancer-type" option in "az ml computetarget attach aks", so we issue a REST call directly.
+  # Note that this deployes the load balancer in a subnet called "aks-subnet".
+  az rest --method PUT --uri 'https://management.azure.com${var.azureml_workspace_id}/computes/aks?api-version=2019-11-01' --body '{"location": "${var.aks_location}", "properties": {"computeType": "AKS", "resourceId": "${var.aks_id}", "properties": {"loadBalancerType":"${var.load_balancer_type}"}}}'
+
 fi
 BASH
     }

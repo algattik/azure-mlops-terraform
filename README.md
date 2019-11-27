@@ -9,12 +9,17 @@ This project automatically deploys DevOps infrastructure and Azure ML infrastruc
 
 This project adapts the MLOpsPython solution (see References) with the following improvements to increase developer productivity.
 * Added Terraform scripts to deploy Azure ML workspace and AKS cluster in a VNET.
+* Deploy AML model with Internal Load Balancer (not exposed through a Public IP).
+  * NB: this requires the ILB to be deployed in a subnet called "aks-subnet".
+  This name is therefore hard-coded in the Terraform deployment scripts. To generalize the template, I'm still finding out how to set a custom subnet name.
 * Reduced number of Azure DevOps variables.
 * Cleaner organization of scripts.
 * Single multi-stage pipeline in version control, rather than separate release pipeline. A release pipeline is not only hard to version control, but also requires **two** separate inbound artifacts from the build pipeline (the pipeline artifacts + the ML Model), which creates an opportunity to introduce errors.
 * Pass specific trained model version when triggering model deployment, rather than just deploying the latest model.
-* Use self-hosted DevOps agent to build. These agents are also deployed with Terraform. Motivation: if you build on Microsoft-hosted agents, the build has to download the entire mcr.microsoft.com/mlops/python container image at every stage, which takes about 2 minutes. With a 2-stage build pipeline, that's 4 minutes overhead per build, which you incur only the first time by using a self-hosted agent VM. The solution provision 4 agents on a single VM, which can lead to side effects, but I've found this to be appropriate for "client-server" job that do little local processing and mostly call out to cloud APIs.
 * Added smoke test to validate the deployed image on AKS.
+* Use self-hosted DevOps agent to build. These agents are also deployed with Terraform. Motivation:
+  * If you build on Microsoft-hosted agents, the build has to download the entire mcr.microsoft.com/mlops/python container image at every stage, which takes about 2 minutes. With a 2-stage build pipeline, that's 4 minutes overhead per build, which you incur only the first time by using a self-hosted agent VM. The solution provision 4 agents on a single VM, which can lead to side effects, but I've found this to be appropriate for "client-server" job that do little local processing and mostly call out to cloud APIs.
+  * As the ML model is exposed through an Internal Load Balancer with a VNET internal address, this allows reaching the service directly from the agent (to run smoke tests), without having to spin a container. This saves a little bit of time and complexity.
 
 ## How-to
 

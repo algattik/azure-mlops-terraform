@@ -63,8 +63,9 @@ module "azureml" {
 
 module "azureml_aks" {
   source = "./azureml_aks"
-  azureml_workspace_id = module.azureml.id
+  aks_location = module.aks.location
   resource_group_name = azurerm_resource_group.aml.name
+  azureml_workspace_id = module.azureml.id
   azureml_workspace_name = module.azureml.name
   aks_id = module.aks.id
   kube_config = module.aks.kube_config

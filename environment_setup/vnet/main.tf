@@ -14,7 +14,8 @@ resource "azurerm_virtual_network" "aml" {
 
 # Create subnet
 resource "azurerm_subnet" "aks" {
-  name                 = "AzureKubernetesSubnet"
+  # Name currently MUST be `aks-subnet` to deploy Azure ML internal load balancer
+  name                 = "aks-subnet"
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.aml.name
   address_prefix       = "10.100.1.0/24"
@@ -27,7 +28,7 @@ resource "azurerm_subnet" "aks" {
 
 # Create subnet
 resource "azurerm_subnet" "devops" {
-  name                 = "AzureDevopsSubnet"
+  name                 = "devops-agents-subnet"
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.aml.name
   address_prefix       = "10.100.2.0/24"

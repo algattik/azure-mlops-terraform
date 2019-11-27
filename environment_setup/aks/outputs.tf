@@ -5,3 +5,7 @@ output "kube_config" {
 output "id" {
   value = azurerm_kubernetes_cluster.aks.id
 }
+
+output "location" {
+  value = azurerm_kubernetes_cluster.aks.location
+}
