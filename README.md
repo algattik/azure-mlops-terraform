@@ -3,11 +3,23 @@
 
 ## About this project
 
+This project automatically deploys DevOps infrastructure and Azure ML infrastructure to build, train and deploy a basic ML model to Azure Kubernetes Service.
+
+![DevOps pipeline](/docs/images/pipeline.png)
+
 This project adapts the MLOpsPython solution (see References) with the following improvements to increase developer productivity.
-* Added Terraform scripts to deploy Azure ML workspace and AKS cluster.
+* Added Terraform scripts to deploy Azure ML workspace and AKS cluster in a VNET.
+* Deploy AML model with Internal Load Balancer (not exposed through a Public IP).
+  * NB: this requires the ILB to be deployed in a subnet called "aks-subnet".
+  This name is therefore hard-coded in the Terraform deployment scripts. To generalize the template, I'm still finding out how to set a custom subnet name.
 * Reduced number of Azure DevOps variables.
 * Cleaner organization of scripts.
-* Use self-hosted DevOps agent to build. Motivation: if you build on Microsoft-hosted agents, the build has to download the entire mcr.microsoft.com/mlops/python container image at every stage, which takes about 2 minutes. With a 2-stage build pipeline, that's 4 minutes overhead per build, which you incur only the first time by using a self-hosted agent VM. The solution provision 4 agents on a single VM, which can lead to side effects, but I've found this to be appropriate for "client-server" job that do little local processing and mostly call out to cloud APIs.
+* Single multi-stage pipeline in version control, rather than separate release pipeline. A release pipeline is not only hard to version control, but also requires **two** separate inbound artifacts from the build pipeline (the pipeline artifacts + the ML Model), which creates an opportunity to introduce errors.
+* Pass specific trained model version when triggering model deployment, rather than just deploying the latest model.
+* Added smoke test to validate the deployed image on AKS.
+* Use self-hosted DevOps agent to build. These agents are also deployed with Terraform. Motivation:
+  * If you build on Microsoft-hosted agents, the build has to download the entire mcr.microsoft.com/mlops/python container image at every stage, which takes about 2 minutes. With a 2-stage build pipeline, that's 4 minutes overhead per build, which you incur only the first time by using a self-hosted agent VM. The solution provision 4 agents on a single VM, which can lead to side effects, but I've found this to be appropriate for "client-server" job that do little local processing and mostly call out to cloud APIs.
+  * As the ML model is exposed through an Internal Load Balancer with a VNET internal address, this allows reaching the service directly from the agent (to run smoke tests), without having to spin a container. This saves a little bit of time and complexity.
 
 ## How-to
 
@@ -18,11 +30,24 @@ This project adapts the MLOpsPython solution (see References) with the following
 * In Azure DevOps, create an Agent Pool. Name the pool `pool001`. (If you choose another name, you will need to set the variable in Terraform, and also update the DevOps pipeline YAML).
 * Install the [Azure DevOps Machine Learning extension](https://marketplace.visualstudio.com/items?itemName=ms-air-aiagility.vss-services-azureml) into your Azure DevOps organization.
 
-### Provision Azure resources
+### Required resources
 
 If you don't yet have a public SSH key defined in ~/.ssh/id_rsa.pub, run:
 ```
 ssh-keygen
+```
+
+Install the Azure CLI and log in to your subscription:
+
+```
+az login
+az account list -o table
+```
+
+If you don't want to use the default subscription, set a different one using:
+
+```
+az account set -s {subscriptionId}
 ```
 
 Create a Service Principal that will serve as the identity of the created AKS cluster. Make sure to use `--skip-assignment true`, otherwise the principal will be granted Contributor permission to your entire subscription.
@@ -31,13 +56,37 @@ Create a Service Principal that will serve as the identity of the created AKS cl
 az ad sp create-for-rbac --skip-assignment true
 ```
 
-The command outputs the principal ID and secret, which we will use in the next command.
+The command outputs the principal ID (`appId`) and secret (`password`), which we will use in the next command.
+
+Now we will also need the service principal Object ID. Retrieve this with this command, passing the principal ID:
+
+```
+az ad sp show --id {createdPrincipalId} --query objectId
+```
+
+Example:
+
+```
+az ad sp create-for-rbac --skip-assignment true
+{
+  "appId": "5a6da102-1de4-47b6-8e3a-628e26f075e6",
+  "displayName": "azure-cli-2019-11-26-17-31-58",
+  "name": "http://azure-cli-2019-11-26-17-31-58",
+  "password": "ffffffff-0000-0000-0000-cd226c638d82",
+  "tenant": "72f988bf-86f1-41af-91ab-2d7cd011db47"
+}
+
+az ad sp show --id  5a6da102-1de4-47b6-8e3a-628e26f075e6 --query objectId
+"58270c2e-2c3d-4473-aadb-faffdb106b44"
+```
+
+### Terraform deployment
 
 Deploy the Terraform environment. Choose a prefix containing only lowercase letters and numbers. The prefix must be globally unique as it's used for DNS names, so use something original!
 
 ```
 cd environment_setup
-terraform plan -out=out.tfstate -var prefix=xyzzy01 -var pat={AzureDevOpsPATToken} -var sshkey="$(cat ~/.ssh/id_rsa.pub)" -var url=https://dev.azure.com/{MyOrg} -var aksServicePrincipalId={createdPrincipalId} -var aksServicePrincipalSecret={createdPrincipalSecret}
+terraform plan -out=out.tfstate -var prefix=xyzzy01 -var pat={AzureDevOpsPATToken} -var sshkey="$(cat ~/.ssh/id_rsa.pub)" -var url=https://dev.azure.com/{MyOrg} -var aksServicePrincipalId={createdPrincipalId} -var aksServicePrincipalSecret={createdPrincipalSecret} -var aksServicePrincipalObjectId={createdPrincipalObjectId}
 terraform apply out.tfstate
 ```
 
@@ -64,31 +113,13 @@ The `skipComponentGovernanceDetection` entry is useful only if you [work for Mic
 
 In Azure DevOps, create a new Build pipeline and point to `devops_pipelines/azdo-ci-build-train.yml`. Execute the pipeline.
 
-The script devops_pipelines/azdo-ci-build-train.yml has a section commented out, to use the new new agentless ML job submission extension [Azure DevOps Machine Learning extension > Run published pipeline server task](https://marketplace.visualstudio.com/items?itemName=ms-air-aiagility.vss-services-azureml), but it's commented out and replaced by an agent-based version while I sort out blocking issues with the extension authors. (The job gets canceled instead of ending successfully).
+The first run, or any subsequent run where the model performance improves, will result in the model being registered and deployed to AKS:
 
-### Create Release pipeline
+![DevOps pipeline](/docs/images/pipeline.png)
 
-Follow the instructions at https://github.com/microsoft/MLOpsPython/blob/master/docs/getting_started.md#set-up-a-release-deployment-pipeline-to-deploy-the-model. You can skip the deployment to ACI and deploy directly to AKS.
+Any subsequent run where the model performance does not improve, will result in the pipeline being canceled:
 
-I've been hit by an [Azure CLI bug](https://github.com/Azure/azure-cli/issues/11379) which has forced me to come with a workaround:
-Before the AzureML Model Deploy task, add a bash task with the following inline script:
-```
-echo "##vso[task.setvariable variable=HOME]${HOME:-$AGENT_HOMEDIRECTORY}"
-```
-
-I've found it useful to add a Smoke test task after the AzureML Model Deploy task. Create an Azure CLI task, select your `AzureMLWorkspace` service connection and enter the following inline script:
-```
-set -euo pipefail
-
-az extension add -n azure-cli-ml
-
-uri=$(az ml service show -g $RESOURCE_GROUP -w $WORKSPACE_NAME -n mlops-aks --query scoringUri -o tsv)
-key=$(az ml service get-keys -g $RESOURCE_GROUP -w $WORKSPACE_NAME -n mlops-aks --query primaryKey -o tsv)
-
-# jq -e will set exit code if element not found
-curl -H "Authorization: Bearer $key" "$uri" -d '{"data":[[1,2,3,4,5,6,7,8,9,10],[10,9,8,7,6,5,4,3,2,1]]}' -H Content-type:application/json | jq -e .result
-```
-
+![DevOps pipeline](/docs/images/pipeline_canceled.png)
 
 ## References
 

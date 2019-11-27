@@ -3,15 +3,10 @@
 # For naming conventions, refer to:
 #   https://docs.microsoft.com/en-us/azure/cloud-adoption-framework/ready/azure-best-practices/naming-and-tagging
 
-# Inputs
-
-variable "prefix" {
-  type = string
-}
-
-variable "location" {
-  type    = string
-  default = "West Europe"
+# Configure the Azure Provider
+provider "azurerm" {
+  # whilst the `version` attribute is optional, we recommend pinning to a given version of the Provider
+  version = "=1.36.1"
 }
 
 # Data
@@ -25,128 +20,53 @@ resource "azurerm_resource_group" "aml" {
   location = var.location
 }
 
-# Storage Account
 
-resource "azurerm_storage_account" "aml" {
-  name                     = "st${var.prefix}"
-  resource_group_name      = azurerm_resource_group.aml.name
-  location                 = azurerm_resource_group.aml.location
-  account_tier             = "Standard"
-  account_replication_type = "LRS"
-}
-
-# Key Vault
-
-resource "azurerm_key_vault" "aml" {
-  name                     = "kv-${var.prefix}"
-  location                    = azurerm_resource_group.aml.location
-  resource_group_name         = azurerm_resource_group.aml.name
-  tenant_id                   = data.azurerm_client_config.current.tenant_id
-
-  sku_name = "standard"
-
-  network_acls {
-    default_action = "Deny"
-    bypass         = "AzureServices"
-  }
-}
-
-# Application Insights
-
-resource "azurerm_application_insights" "aml" {
-  name                     = "appinsights-${var.prefix}"
-  resource_group_name      = azurerm_resource_group.aml.name
-  location                 = azurerm_resource_group.aml.location
-  application_type    = "web"
-}
-
-output "instrumentation_key" {
-  value = azurerm_application_insights.aml.instrumentation_key
-}
-
-output "app_id" {
-  value = azurerm_application_insights.aml.app_id
-}
-
-# Container Registry
-
-resource "azurerm_container_registry" "aml" {
-  name                     = "acr${var.prefix}"
-  resource_group_name      = azurerm_resource_group.aml.name
-  location                 = azurerm_resource_group.aml.location
-  sku                      = "Standard"
-  admin_enabled            = true
-}
-
-# Azure ML Workspace
-
-resource "azurerm_template_deployment" "aml" {
-  name                     = "aml-${var.prefix}-deploy"
+module "vnet" {
+  source = "./vnet"
   resource_group_name = azurerm_resource_group.aml.name
-
-  template_body = <<DEPLOY
-{
-  "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
-  "contentVersion": "1.0.0.0",
-  "parameters": {
-    "location": {
-      "type": "string"
-    },
-    "amlWorkspaceName": {
-      "type": "string"
-    },
-    "storageAccount": {
-      "type": "string"
-    },
-    "keyVault": {
-      "type": "string"
-    },
-    "applicationInsights": {
-      "type": "string"
-    },
-    "containerRegistry": {
-      "type": "string"
-    }
-  },
-  "resources": [
-    {
-      "type": "Microsoft.MachineLearningServices/workspaces",
-      "apiVersion": "2018-11-19",
-      "name": "[parameters('amlWorkspaceName')]",
-      "location": "[parameters('location')]",
-      "identity": {
-        "type": "systemAssigned"
-      },
-      "properties": {
-        "friendlyName": "[parameters('amlWorkspaceName')]",
-        "keyVault": "[parameters('keyVault')]",
-        "applicationInsights": "[parameters('applicationInsights')]",
-        "containerRegistry": "[parameters('containerRegistry')]",
-        "storageAccount": "[parameters('storageAccount')]"
-      }
-    }
-  ],
-  "outputs": {
-    "id": {
-      "type": "string",
-      "value": "[resourceId('Microsoft.MachineLearningServices/workspaces', parameters('amlWorkspaceName'))]"
-    },
-    "name": {
-      "type": "string",
-      "value": "[parameters('amlWorkspaceName')]"
-    }
-  }
+  prefix = var.prefix
+  location = var.location
 }
-DEPLOY
 
-  parameters = {
-    location = azurerm_resource_group.aml.location
-    amlWorkspaceName = "aml-${var.prefix}"
-    storageAccount = azurerm_storage_account.aml.id
-    keyVault = azurerm_key_vault.aml.id
-    applicationInsights = azurerm_application_insights.aml.id
-    containerRegistry = azurerm_container_registry.aml.id
-  }
+module "devops_agent" {
+  source = "./devops_agent"
+  subnet_id = module.vnet.devops_subnet_id
+  prefix = var.prefix
+  location = var.location
+  url = var.url
+  pat = var.pat
+  pool = var.pool
+  num_agents = var.num_agents
+  sshkey = var.sshkey
+  size = var.size
+}
 
-  deployment_mode = "Incremental"
+module "aks" {
+  source = "./aks"
+  prefix = var.prefix
+  location = var.location
+  resource_group_name = azurerm_resource_group.aml.name
+  tenant_id = data.azurerm_client_config.current.tenant_id
+  subnet_id = module.vnet.aks_subnet_id
+  aksServicePrincipalId = var.aksServicePrincipalId
+  aksServicePrincipalSecret = var.aksServicePrincipalSecret
+  aksServicePrincipalObjectId = var.aksServicePrincipalObjectId
+}
+
+module "azureml" {
+  source = "./azureml"
+  prefix = var.prefix
+  location = var.location
+  tenant_id = data.azurerm_client_config.current.tenant_id
+  resource_group_name = azurerm_resource_group.aml.name
+}
+
+module "azureml_aks" {
+  source = "./azureml_aks"
+  aks_location = module.aks.location
+  resource_group_name = azurerm_resource_group.aml.name
+  azureml_workspace_id = module.azureml.id
+  azureml_workspace_name = module.azureml.name
+  aks_id = module.aks.id
+  kube_config = module.aks.kube_config
 }
