@@ -27,10 +27,10 @@ variable "pool" {
 }
 
 #The name of the agent
-variable "agent" {
-  type = string
-  description = "Specify the name of the agent(s), space separated"
-  default = "agent001 agent002 agent003 agent004"
+variable "num_agents" {
+  type = number
+  description = "Specify the number of agents, e.g. '2'. Agents will be named with a random prefix."
+  default = 4
 }
 
 variable "sshkey" {

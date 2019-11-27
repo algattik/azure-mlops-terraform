@@ -36,7 +36,7 @@ module "devops_agent" {
   url = var.url
   pat = var.pat
   pool = var.pool
-  agent = var.agent
+  num_agents = var.num_agents
   sshkey = var.sshkey
   size = var.size
 }

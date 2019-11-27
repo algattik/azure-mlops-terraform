@@ -138,6 +138,6 @@ resource "azurerm_virtual_machine_extension" "devops" {
   })
   protected_settings = jsonencode({
   "fileUris": ["${azurerm_storage_blob.devops.url}${data.azurerm_storage_account_blob_container_sas.devops_agent_init.sas}"],
-  "commandToExecute": "bash devops_agent_init.sh '${var.url}' '${var.pat}' '${var.pool}' '${var.agent}'"
+  "commandToExecute": "bash devops_agent_init.sh '${var.url}' '${var.pat}' '${var.pool}' '${var.num_agents}'"
   })
 }
