@@ -62,11 +62,7 @@ def main():
                 e.experiment_name,
                 pipeline_parameters)
 
-            print("Pipeline run initiated")
-            print("- Run ID: ", run.id)
-            print("- Run URL: ", run.get_portal_url())
-
-            run.wait_for_completion(show_output=True)
+            print("Pipeline run initiated ", run.id)
 
 
 if __name__ == "__main__":

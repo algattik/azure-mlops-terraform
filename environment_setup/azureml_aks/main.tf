@@ -17,7 +17,7 @@ resource "null_resource" "attach-azureml-aks" {
     provisioner "local-exec" {
         command = <<BASH
 set -euxo pipefail
-state=$(az ml computetarget detach -g ${var.resource_group_name} -w ${var.azureml_workspace_name} -n aks --query provisioningState -o tsv 2>/dev/null || true)
+state=$(az ml computetarget show -g ${var.resource_group_name} -w ${var.azureml_workspace_name} -n aks --query provisioningState -o tsv 2>/dev/null || true)
 if [ "$state" == "Failed" ]; then
   az ml computetarget detach -g ${var.resource_group_name} -w ${var.azureml_workspace_name} -n aks 
 fi
