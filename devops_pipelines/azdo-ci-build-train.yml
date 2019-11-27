@@ -62,6 +62,7 @@ stages:
           # A random value is used here to make the Azure ML dashboards "interesting" when testing
           # the solution sample.
           alpha=$(printf "0.%03d\n" $((($RANDOM*1000)/32767)))
+          echo "Alpha: $alpha"
           echo "##vso[task.setvariable variable=ALPHA;isOutput=true]$alpha"
       name: 'getalpha'
   - job: "Run_ML_Pipeline"
@@ -78,7 +79,7 @@ stages:
         azureSubscription: '$(WORKSPACE_SVC_CONNECTION)'
         PipelineId: '$(AMLPIPELINE_ID)'
         ExperimentName: '$(EXPERIMENT_NAME)'
-        PipelineParameters: '"model_name": "$(MODEL_NAME)", "hyperparameter_alpha": "$(ALPHA)"'
+        PipelineParameters: '"hyperparameter_alpha": "$(ALPHA)", "model_name": "$(MODEL_NAME)"'
 - stage: 'Deploy_AKS'
   displayName: 'Deploy to AKS'
   jobs:
