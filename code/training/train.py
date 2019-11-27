@@ -23,7 +23,8 @@ parser.add_argument(
     "--alpha",
     type=float,
     default=0.5,
-    help="Ridge regression regularization strength hyperparameter; must be a positive float."
+    help=("Ridge regression regularization strength hyperparameter; "
+          "must be a positive float.")
 )
 
 args = parser.parse_args()
