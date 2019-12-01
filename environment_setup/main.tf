@@ -68,5 +68,7 @@ module "azureml_aks" {
   azureml_workspace_id = module.azureml.id
   azureml_workspace_name = module.azureml.name
   aks_id = module.aks.id
+  aks_subnet_name = module.vnet.aks_subnet_name
   kube_config = module.aks.kube_config
+  load_balancer_type = var.load_balancer_type
 }

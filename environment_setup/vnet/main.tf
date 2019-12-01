@@ -14,7 +14,8 @@ resource "azurerm_virtual_network" "aml" {
 
 # Create subnet
 resource "azurerm_subnet" "aks" {
-  # Name currently MUST be `aks-subnet` to deploy Azure ML internal load balancer
+  # Name currently MUST be `aks-subnet` to deploy Azure ML internal load balancer, as the AML compute creation loadBalancerSubnet argument
+  #  is ignored by the Azure ML API as of November 2019.
   name                 = "aks-subnet"
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.aml.name

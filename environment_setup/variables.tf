@@ -52,3 +52,9 @@ variable "size" {
   description = "Specify the size of the VM"
   default = "Standard_D2s_v3"
 }
+
+variable "load_balancer_type" {
+  type    = string
+  default = "PublicIp"
+  description = "Load balancer type of AKS cluster. Valid values are PublicIp and InternalLoadBalancer"
+}

@@ -16,7 +16,19 @@ variable "azureml_workspace_name" {
 variable "aks_id" {
   type    = string
 }
+variable "aks_subnet_name" {
+  type    = string
+}
 variable "load_balancer_type" {
   type    = string
-  default = "InternalLoadBalancer"
+  default = "PublicIp"
+  description = "Load balancer type of AKS cluster. Valid values are PublicIp and InternalLoadBalancer"
+}
+variable "compute_target_name" {
+  type    = string
+  default = "aks"
+}
+variable "creation_timeout_s" {
+  type    = number
+  default = 1200
 }

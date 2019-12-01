@@ -10,8 +10,7 @@ This project automatically deploys DevOps infrastructure and Azure ML infrastruc
 This project adapts the MLOpsPython solution (see References) with the following improvements to increase developer productivity.
 * Added Terraform scripts to deploy Azure ML workspace and AKS cluster in a VNET.
 * Deploy AML model with Internal Load Balancer (not exposed through a Public IP).
-  * NB: this requires the ILB to be deployed in a subnet called "aks-subnet".
-  This name is therefore hard-coded in the Terraform deployment scripts. To generalize the template, I'm still finding out how to set a custom subnet name.
+  * NB: this requires the ILB to be deployed in a subnet called "aks-subnet", as the AML compute creation loadBalancerSubnet argument is ignored by the Azure ML API as of November 2019.
 * Reduced number of Azure DevOps variables.
 * Cleaner organization of scripts.
 * Single multi-stage pipeline in version control, rather than separate release pipeline. A release pipeline is not only hard to version control, but also requires **two** separate inbound artifacts from the build pipeline (the pipeline artifacts + the ML Model), which creates an opportunity to introduce errors.
